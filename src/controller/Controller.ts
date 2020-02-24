@@ -1,115 +1,125 @@
-import {Request, Response} from 'express';
-import {connection} from "../connection/Connection";
+import { Request, Response } from "express";
+import { connection } from "../connection/Connection";
 import SuperHero from "../entity/SuperHero";
 import Power from "../entity/Power";
 
 class Controller {
+  constructor() {}
 
-    constructor() {}
+  public getAllSuperHero(req: Request, res: Response) {
+    connection
+      .then(async connection => {
+        const superHeroes: SuperHero[] = await connection.manager.find(
+          SuperHero
+        );
+        res.json(superHeroes);
+      })
+      .catch(error => {
+        console.error("Error ", error);
+        res.json(error);
+      });
+  }
 
+  public addSuperHero(req: Request, res: Response) {
+    connection
+      .then(async connection => {
+        let requestSuperHero = req.body;
+        let requestPower = requestSuperHero.power;
 
-    public getAllSuperHero(req: Request, res: Response) {
-        connection
-            .then(async connection => {
-                const superHeroes: SuperHero[] = await connection.manager.find(SuperHero);
-                res.json(superHeroes);
-            })
-            .catch(error => {
-                console.error("Error ", error);
-                res.json(error);
-            });
-    }
+        let superHero = new SuperHero();
+        superHero.name = requestSuperHero.name;
+        superHero.power = [];
 
-    public addSuperHero(req: Request, res: Response) {
-        connection
-            .then(async connection => {
-                let requestSuperHero = req.body;
-                let requestPower = requestSuperHero.power;
+        requestPower.forEach(requestPower => {
+          let power: Power = new Power();
+          power.ability = requestPower;
+          superHero.power.push(power);
+        });
 
-                let superHero = new SuperHero();
-                superHero.name = requestSuperHero.name;
-                superHero.power = [];
+        await connection.manager.save(superHero);
+        res.json({ message: "Successfully Saved." });
+      })
+      .catch(error => {
+        console.error("Error ", error);
+        res.json(error);
+      });
+  }
 
-                requestPower.forEach(requestPower => {
-                   let power: Power = new Power();
-                   power.ability = requestPower;
-                   superHero.power.push(power);
-                });
+  public updateSuperHero(req: Request, res: Response) {
+    connection
+      .then(async connection => {
+        let superHero = await connection.manager.findOne(
+          SuperHero,
+          req.params.superHeroId
+        );
 
-                await connection.manager.save(superHero);
-                res.json({message: "Successfully Saved."})
-            })
-            .catch(error => {
-                console.error("Error ", error);
-                res.json(error);
-            });
-    }
+        let requestSuperHero = req.body;
+        let requestPower = requestSuperHero.power;
 
-    public updateSuperHero(req: Request, res: Response) {
-        connection
-            .then(async connection => {
+        superHero.name = requestSuperHero.name;
+        superHero.power = [];
 
-                let superHero  = await connection.manager.findOne(SuperHero, req.params.superHeroId);
+        // delete previous power of our super-hero
+        superHero.power.forEach(async power => {
+          await connection.manager.remove(Power, { id: power.id });
+        });
 
-                let requestSuperHero = req.body;
-                let requestPower = requestSuperHero.power;
+        // add new power to our super-hero
+        requestPower.forEach(requestPower => {
+          let power: Power = new Power();
+          power.ability = requestPower;
+          superHero.power.push(power);
+        });
 
-                superHero.name = requestSuperHero.name;
-                superHero.power = [];
+        await connection.manager.save(superHero);
+        res.json({ message: "Successfully Updated." });
+      })
+      .catch(error => {
+        console.error("Error ", error);
+        res.json(error);
+      });
+  }
 
-                // delete previous power of our super-hero
-                superHero.power.forEach(async power => {
-                    await connection.manager.remove(Power, {id: power.id});
-                });
+  public getSuperHeroById(req: Request, res: Response) {
+    connection
+      .then(async connection => {
+        let superHero = await connection.manager.findOne(
+          SuperHero,
+          req.params.superHeroId
+        );
+        res.json(superHero);
+      })
+      .catch(error => {
+        console.error("Error ", error);
+        res.json(error);
+      });
+  }
 
-                // add new power to our super-hero
-                requestPower.forEach(requestPower => {
-                    let power: Power = new Power();
-                    power.ability = requestPower;
-                    superHero.power.push(power);
-                });
+  public deleteSuperHero(req: Request, res: Response) {
+    connection
+      .then(async connection => {
+        let superHero = await connection.manager.findOne(
+          SuperHero,
+          req.params.superHeroId
+        );
 
-                await connection.manager.save(superHero);
-                res.json({message: "Successfully Updated."})
-            })
-            .catch(error => {
-                console.error("Error ", error);
-                res.json(error);
-            });
-    }
+        // delete all power first
+        superHero.power.forEach(async power => {
+          await connection.manager.remove(Power, { id: power.id });
+        });
 
-    public getSuperHeroById(req: Request, res: Response) {
-        connection
-            .then(async connection => {
-                let superHero  = await connection.manager.findOne(SuperHero, req.params.superHeroId);
-                res.json(superHero)
-            })
-            .catch(error => {
-                console.error("Error ", error);
-                res.json(error);
-            });
-    }
+        // delete our super-hero
+        await connection.manager.remove(SuperHero, {
+          id: req.params.superHeroId
+        });
 
-    public deleteSuperHero(req: Request, res: Response) {
-        connection
-            .then(async connection => {
-                let superHero  = await connection.manager.findOne(SuperHero, req.params.superHeroId);
-
-                // delete all power first
-                superHero.power.forEach(async power => {
-                    await connection.manager.remove(Power, {id: power.id});
-                });
-
-                // delete our super-hero
-                await connection.manager.remove(SuperHero, {id: req.params.superHeroId});
-
-                res.json({message: "Successfully Removed."})
-            })
-            .catch(error => {
-                console.error("Error ", error);
-                res.json(error);
-            });
-    }
+        res.json({ message: "Successfully Removed." });
+      })
+      .catch(error => {
+        console.error("Error ", error);
+        res.json(error);
+      });
+  }
 }
 
-export {Controller}
+export { Controller };
